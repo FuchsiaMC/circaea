@@ -9,3 +9,13 @@ commands:
   ?playername:
     description: Debug command that resolves a player.
     usage: /?playername <name|uuid>
+
+  viewperms:
+    description: Lists a player's permissions, as well as their applied rank and groups.
+    usage: /viewperms <name>
+    permission: circaea.viewperms
+
+  refreshperms:
+    description: Refreshes permissions in case they somehow desync.
+    usage: /refreshperms
+    permission: circaea.refreshperms
