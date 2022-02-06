@@ -1,0 +1,11 @@
+name: Circaea
+version: '${version}'
+main: net.fuchsiamc.circaea.Circaea
+api-version: 1.18
+authors: [ Tomat ]
+description: A powerful in-house permissions system for Spigot.
+
+commands:
+  ?playername:
+    description: Debug command that resolves a player.
+    usage: /?playername <name|uuid>
