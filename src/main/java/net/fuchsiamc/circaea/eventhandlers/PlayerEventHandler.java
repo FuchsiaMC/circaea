@@ -16,7 +16,7 @@ public class PlayerEventHandler implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        circaea.addPlayerPermissions(event.getPlayer());
+        circaea.restorePlayerPermissions(event.getPlayer());
     }
 
     @EventHandler
