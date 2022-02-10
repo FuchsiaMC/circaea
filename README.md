@@ -1,2 +1,2 @@
 # circaea
-Powerful in-house permissions plugin for Spigot.
+Powerful in-house permissions plugin for Paper.
