@@ -1,8 +1,9 @@
 name: Circaea
-version: '${version}'
+version: '${project.version}'
 main: net.fuchsiamc.circaea.Circaea
 api-version: 1.18
-authors: [ Tomat ]
+
+authors: [ Fuchsia Programmer Team ]
 description: A powerful in-house permissions system for Spigot.
 
 commands:

@@ -87,7 +87,7 @@ public final class Circaea extends FuchsiaPlugin {
 
         if (ranks.stream().anyMatch(x -> Objects.equals(x.name, rank.name))) {
             ranks.replaceAll(x -> {
-                if (Objects.equals(x.name rank.name)) {
+                if (x.name.equals(rank.name)) {
                     return rank;
                 }
                 return x;
@@ -152,9 +152,6 @@ public final class Circaea extends FuchsiaPlugin {
             groupAddedPermissions.put(group, getConfig().getStringList("groups.addedpermissions." + group));
             groupRemovedPermissions.put(group, getConfig().getStringList("groups.removedpermissions." + group));
             registerGroup(new PermissionGroup(groupAddedPermissions.get(group), groupRemovedPermissions.get(group), group));
-        }
-
-        for (String rank : getConfig().getStringList("ranks.names")) {
         }
 
         for (String rank : getConfig().getStringList("ranks.names")) {
