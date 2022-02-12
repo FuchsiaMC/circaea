@@ -1,13 +1,12 @@
 package net.fuchsiamc.circaea.commands.debug;
 
-import net.fuchsiamc.circaea.framework.commands.IDebugCommandExecutor;
 import net.fuchsiamc.circaea.util.PlayerName;
 import net.fuchsiamc.circaea.util.PlayerNameResolver;
+import net.fuchsiamc.gaura.commands.IDebugCommandExecutor;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
 import javax.annotation.Nullable;
 

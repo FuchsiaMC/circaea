@@ -2,11 +2,11 @@ package net.fuchsiamc.circaea;
 
 import net.fuchsiamc.circaea.commands.debug.PlayerNameTestCommand;
 import net.fuchsiamc.circaea.eventhandlers.PlayerEventHandler;
-import net.fuchsiamc.circaea.framework.FuchsiaPlugin;
-import net.fuchsiamc.circaea.framework.commands.IFuchsiaCommand;
 import net.fuchsiamc.circaea.permissions.PermissionGroup;
 import net.fuchsiamc.circaea.permissions.PermissionRank;
 import net.fuchsiamc.circaea.util.CommandResponse;
+import net.fuchsiamc.gaura.commands.IFuchsiaCommand;
+import net.fuchsiamc.gaura.core.FuchsiaPlugin;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissionAttachment;
 

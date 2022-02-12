@@ -1,6 +1,6 @@
 package net.fuchsiamc.circaea.commands;
 
-import net.fuchsiamc.circaea.framework.commands.IFuchsiaCommand;
+import net.fuchsiamc.gaura.commands.IFuchsiaCommand;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 

@@ -1,1 +1,0 @@
-In-house plug-in framework that will be moved elsewhere soon:tm:.
