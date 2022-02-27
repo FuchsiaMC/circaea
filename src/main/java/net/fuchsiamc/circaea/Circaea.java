@@ -1,43 +1,174 @@
 package net.fuchsiamc.circaea;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoDatabase;
+import lombok.Getter;
+import net.fuchsiamc.circaea.commands.CircaeaCommand;
 import net.fuchsiamc.circaea.commands.debug.PlayerNameTestCommand;
 import net.fuchsiamc.circaea.eventhandlers.PlayerEventHandler;
-import net.fuchsiamc.circaea.permissions.PermissionGroup;
-import net.fuchsiamc.circaea.permissions.PermissionRank;
-import net.fuchsiamc.circaea.util.CommandResponse;
+import net.fuchsiamc.circaea.managers.GroupManager;
+import net.fuchsiamc.circaea.managers.PlayerManager;
+import net.fuchsiamc.circaea.managers.RankManager;
+import net.fuchsiamc.circaea.websocket.CircaeaClient;
+import net.fuchsiamc.circaea.websocket.CircaeaServer;
 import net.fuchsiamc.gaura.commands.IFuchsiaCommand;
 import net.fuchsiamc.gaura.core.FuchsiaPlugin;
-import org.bukkit.entity.Player;
-import org.bukkit.permissions.PermissionAttachment;
+import org.bson.UuidRepresentation;
+import org.bson.codecs.configuration.CodecRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.codecs.pojo.PojoCodecProvider;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.java_websocket.server.WebSocketServer;
 
-import java.util.*;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 public final class Circaea extends FuchsiaPlugin {
     /**
-     * HashMap containing the permissions of all players that have joined the server since it has started.
+     * The mongo database for circaea.
      */
-    public final HashMap<UUID, PermissionAttachment> permissions = new HashMap<>();
+    @Getter
+    private MongoDatabase database;
 
     /**
-     * A list containing all registered permission ranks.
+     * Web socket client for Circaea, used for syncing between servers.
      */
-    public final List<PermissionRank> ranks = new ArrayList<>();
+    @Getter
+    private CircaeaClient socketClient;
 
     /**
-     * A list containing all registered permission groups.
+     * Manager class manging everything to do with permitted players.
      */
-    public final List<PermissionGroup> groups = new ArrayList<>();
+    @Getter
+    private PlayerManager playerManager;
+
+    /**
+     * Manager class manging everything to do with permission ranks.
+     */
+    @Getter
+    private RankManager rankManager;
+
+    /**
+     * Manager class managing everything to do with permission groups.
+     */
+    @Getter
+    private GroupManager groupManager;
+
+    @Getter
+    private BukkitRunnable clientRunnable;
 
     @Override
     public void onEnable() {
         super.onEnable();
 
+        playerManager = new PlayerManager(this);
+        rankManager = new RankManager(this);
+        groupManager = new GroupManager(this);
+
         // Ensure config exists.
         saveDefaultConfig();
-        readRanksAndGroups();
-        refreshPermissions();
+
+        // todo: move to gaura config system
+        // todo: move to gaura logging/disable
+        if (setupMongoDB())
+            return;
+
+        /*
+        clientRunnable = new BukkitRunnable() {
+            @Override
+            public void run() {
+                socketClient.connect();
+            }
+        };
+
+        if (setupSocket())
+            return;*/
+
+        rankManager.initialize(database);
+        groupManager.initialize(database);
+        playerManager.initialize(database);
 
         getServer().getPluginManager().registerEvents(new PlayerEventHandler(this), this);
+    }
+
+    private boolean setupMongoDB() {
+        // todo: also allow not using a string
+        String clientUrl = getConfig().getString("mongodb.clienturl");
+
+        if (Objects.equals(clientUrl, "") || clientUrl == null) {
+            getLogger().severe("MongoDB Client URL was not provided in the config.");
+            getServer().getPluginManager().disablePlugin(this);
+            return true;
+        }
+
+        // set up the mongo client
+        ConnectionString connectionString =
+                new ConnectionString(clientUrl);
+
+        CodecRegistry pojoCodecRegistry = CodecRegistries.fromRegistries(MongoClientSettings.getDefaultCodecRegistry(),
+                CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build()));
+
+        MongoClientSettings settings = MongoClientSettings.builder()
+                .uuidRepresentation(UuidRepresentation.STANDARD)
+                .applyConnectionString(connectionString)
+                .codecRegistry(pojoCodecRegistry)
+                .build();
+
+        MongoClient mongoClient = MongoClients.create(settings);
+        database = mongoClient.getDatabase("circaea");
+        return false;
+    }
+
+    private boolean setupSocket() {
+        String address = getConfig().getString("websocket.address");
+        if (address == null || address.equals("")) {
+            address = "localhost";
+        }
+
+        int port = getConfig().getInt("websocket.port");
+        if (port == 0) {
+            port = 567;
+        }
+
+        // initialize socket client
+
+        try {
+            socketClient = new CircaeaClient(this, new URI("ws://" + address + ":" + port));
+        } catch (URISyntaxException e) {
+            getLogger().severe("Web Socket Client failed to initialize.");
+            e.printStackTrace();
+            getServer().getPluginManager().disablePlugin(this);
+            return true;
+        }
+
+        // initialize and run socket server
+        // socket server then runs socket client when it starts up
+        // or if we're not starting up a server, start the client here
+
+        boolean runServer = getConfig().getBoolean("websocket.server.enabled");
+
+        if (runServer) {
+            WebSocketServer server = new CircaeaServer(this, new InetSocketAddress(address, port));
+            // todo: dispose on disable
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    server.run();
+                }
+            }.runTaskAsynchronously(this);
+        } else {
+            // connect to the socket client
+            clientRunnable.runTaskAsynchronously(this);
+        }
+
+        return false;
     }
 
     @Override
@@ -45,119 +176,8 @@ public final class Circaea extends FuchsiaPlugin {
         List<IFuchsiaCommand> list = new ArrayList<>();
 
         list.add(new PlayerNameTestCommand());
+        list.add(new CircaeaCommand(this));
 
         return list;
-    }
-
-    public void refreshPermissions() {
-        permissions.clear();
-        removeAllPermissions();
-
-        for (Player player : getServer().getOnlinePlayers()) {
-            if (player != null) {
-                restorePlayerPermissions(player);
-            }
-        }
-    }
-
-    private void removeAllPermissions() {
-        for (Player player : getServer().getOnlinePlayers()) {
-            player.removeAttachment(permissions.get(player.getUniqueId()));
-        }
-    }
-
-    public void restorePlayerPermissions(Player player) {
-        PermissionAttachment permAttachment = player.addAttachment(this);
-
-
-
-        permissions.put(player.getUniqueId(), permAttachment);
-        player.updateCommands();
-    }
-
-    public CommandResponse registerRank(PermissionRank rank) {
-        if (!Objects.equals(rank.name, "circaea:default") && rank.priority == 0)
-            return new CommandResponse(false, "Only \"circaea:default\" can have a priority of 0!");
-
-        for (PermissionRank rRank : ranks) {
-            if (rRank.priority == rank.priority && !Objects.equals(rRank.name, rank.name)) {
-                return new CommandResponse(false, "Rank \"" + rRank.name + "\"'s priority conflicts with the rank you're trying to register!");
-            }
-        }
-
-        if (ranks.stream().anyMatch(x -> Objects.equals(x.name, rank.name))) {
-            ranks.replaceAll(x -> {
-                if (x.name.equals(rank.name)) {
-                    return rank;
-                }
-                return x;
-            });
-
-            return new CommandResponse(true, "Successfully replaced old rank of the same name!");
-        }
-
-        ranks.add(rank);
-        return new CommandResponse(true, "Successfully registered new permission rank!");
-    }
-
-    public CommandResponse registerGroup(PermissionGroup group) {
-        if (groups.stream().anyMatch(x -> Objects.equals(x.name(), group.name()))) {
-            groups.replaceAll(x -> {
-                if (Objects.equals(x.name(), group.name())) {
-                    return group;
-                }
-                return x;
-            });
-
-            return new CommandResponse(true, "Successfully replaced old rank of the same name!");
-        }
-
-        groups.add(group);
-        return new CommandResponse(true, "Successfully registered a new group!");
-    }
-
-    /**
-     * Gets the default rank (circaea:default). Creates and registers it, if necessary.
-     * @return The default permission rank.
-     */
-    public PermissionRank getDefaultRank() {
-        // Register rank initially, if necessary.
-        if (ranks.stream().noneMatch(x -> Objects.equals(x.name, "circaea:default"))) {
-            registerRank(new PermissionRank(new ArrayList<>(), "circaea:default", 0, null));
-        }
-
-        Optional<PermissionRank> defaultRank = ranks.stream().filter(x -> Objects.equals(x.name, "circaea:default")).findFirst();
-
-        // This shouldn't really be necessary, but IntelliJ insists.
-        return defaultRank.orElseGet(() -> new PermissionRank(new ArrayList<>(), "circaea:default", 0, null));
-    }
-
-    /**
-     * Reads the permission ranks and permission groups stored in the server's configuration file.
-     */
-    public void readRanksAndGroups() {
-        HashMap<String, Integer> rankPriorities = new HashMap<>();
-        HashMap<String, List<String>> rankGroups = new HashMap<>();
-        HashMap<String, String> rankInheriteds = new HashMap<>();
-        HashMap<String, List<String>> groupAddedPermissions = new HashMap<>();
-        HashMap<String, List<String>> groupRemovedPermissions = new HashMap<>();
-
-        for (String rank : getConfig().getStringList("ranks.names")) {
-            rankPriorities.put(rank, getConfig().getInt("ranks.priorities." + rank));
-            rankGroups.put(rank, getConfig().getStringList("ranks.groups." + rank));
-            rankInheriteds.put(rank, getConfig().getString("ranks.inheriteds." + rank));
-        }
-
-        for (String group : getConfig().getStringList("groups.names")) {
-            groupAddedPermissions.put(group, getConfig().getStringList("groups.addedpermissions." + group));
-            groupRemovedPermissions.put(group, getConfig().getStringList("groups.removedpermissions." + group));
-            registerGroup(new PermissionGroup(groupAddedPermissions.get(group), groupRemovedPermissions.get(group), group));
-        }
-
-        for (String rank : getConfig().getStringList("ranks.names")) {
-            // justification: shut up
-            // noinspection OptionalGetWithoutIsPresent
-            PermissionRank realRank = ranks.stream().filter(x -> Objects.equals(x.name, rank)).findFirst().get();
-        }
     }
 }

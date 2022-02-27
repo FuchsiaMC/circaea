@@ -3,7 +3,7 @@ version: '${project.version}'
 main: net.fuchsiamc.circaea.Circaea
 api-version: 1.18
 
-authors: [ Fuchsia Programmer Team ]
+authors: [ FuchsiaMC ]
 description: A powerful in-house permissions system for Spigot.
 
 commands:
@@ -11,12 +11,7 @@ commands:
     description: Debug command that resolves a player.
     usage: /?playername <name|uuid>
 
-  viewperms:
-    description: Lists a player's permissions, as well as their applied rank and groups.
-    usage: /viewperms <name>
-    permission: circaea.viewperms
-
-  refreshperms:
-    description: Refreshes permissions in case they somehow desync.
-    usage: /refreshperms
-    permission: circaea.refreshperms
+  circaea:
+    description: All Circaea commands.
+    usage: /circaea <sub command>
+    permission: circaea.command.circaea
