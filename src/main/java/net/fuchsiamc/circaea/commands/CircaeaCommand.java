@@ -49,9 +49,13 @@ public class CircaeaCommand implements IFuchsiaCommand {
                 return rankCommand(sender, args);
             case "player":
                 return playerCommand(sender, args);
+            case "sync":
+                circaea.getPlayerManager().refreshAllPermissions();
+                sender.sendMessage("Refreshed all commands for every online player!");
+                return true;
         }
 
-        sender.sendMessage("only group, rank, or player are valid subcommands");
+        sender.sendMessage("only group, rank, player, sync are valid subcommands");
         return true;
     }
 

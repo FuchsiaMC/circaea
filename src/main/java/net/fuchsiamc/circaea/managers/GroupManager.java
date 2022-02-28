@@ -4,15 +4,22 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import net.fuchsiamc.circaea.Circaea;
 import net.fuchsiamc.circaea.permissions.PermissionGroup;
 import net.fuchsiamc.circaea.util.Response;
 import org.bson.Document;
 
 public class GroupManager {
+    private final Circaea circaea;
+
     /**
      * The mongo database collection for groups.
      */
     private MongoCollection<PermissionGroup> groupsCollection;
+
+    public GroupManager(Circaea circaea) {
+        this.circaea = circaea;
+    }
 
     public void initialize(MongoDatabase db) {
         // initialize the collection
@@ -35,6 +42,8 @@ public class GroupManager {
         if (groupsCollection.findOneAndReplace(new Document("name", group.getName()), group) == null) {
             return new Response(false, "This permission group does not exist!");
         }
+
+        circaea.getPlayerManager().refreshAllPermissions();
 
         return new Response(true, "Successfully updated permission group!");
     }

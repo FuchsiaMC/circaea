@@ -8,6 +8,7 @@ import net.fuchsiamc.circaea.permissions.PermissionGroup;
 import net.fuchsiamc.circaea.permissions.PermittedPlayer;
 import net.fuchsiamc.circaea.util.Response;
 import org.bson.Document;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissionAttachment;
 
@@ -51,6 +52,12 @@ public class PlayerManager {
         // replace the player in the database
         if (playersCollection.findOneAndReplace(new Document("uuid", player.getPlayerUuid()), player) == null) {
             return new Response(false, "This permitted player does not exist!");
+        }
+
+        // refresh commands
+        Player onlinePlayer = Bukkit.getPlayer(player.getPlayerUuid());
+        if (onlinePlayer != null) {
+            onlinePlayer.updateCommands();
         }
 
         return new Response(true, "Successfully updated permitted player!");
@@ -118,5 +125,14 @@ public class PlayerManager {
                 attachment.setPermission(perm, false);
             }
         }
+    }
+
+    public void refreshAllPermissions() {
+        Bukkit.getScheduler().runTaskAsynchronously(circaea, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                // refresh commands
+                player.updateCommands();
+            }
+        });
     }
 }

@@ -46,10 +46,10 @@ public class PlayerEventHandler implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
 
-        // remove the permission attachment
-        manager.removeAttachment(player);
-
         // set all registered perms to false
         manager.removePermissions(manager.getPlayer(player.getUniqueId()), circaea.getGroupManager());
+
+        // remove the permission attachment
+        manager.removeAttachment(player);
     }
 }

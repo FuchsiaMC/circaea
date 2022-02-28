@@ -4,15 +4,22 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import net.fuchsiamc.circaea.Circaea;
 import net.fuchsiamc.circaea.permissions.PermissionRank;
 import net.fuchsiamc.circaea.util.Response;
 import org.bson.Document;
 
 public class RankManager {
+    private final Circaea circaea;
+
     /**
      * The mongo database collection for ranks.
      */
     private MongoCollection<PermissionRank> ranksCollection;
+
+    public RankManager(Circaea circaea) {
+        this.circaea = circaea;
+    }
 
     public void initialize(MongoDatabase db) {
         // initialize the collection
@@ -64,6 +71,8 @@ public class RankManager {
                 return new Response(false, "A rank with the same priority already exists!");
             }
         }
+
+        circaea.getPlayerManager().refreshAllPermissions();
 
         return new Response(true, "Successfully updated permission rank!");
     }

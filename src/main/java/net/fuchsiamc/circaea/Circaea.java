@@ -7,7 +7,6 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import lombok.Getter;
 import net.fuchsiamc.circaea.commands.CircaeaCommand;
-import net.fuchsiamc.circaea.commands.debug.PlayerNameTestCommand;
 import net.fuchsiamc.circaea.eventhandlers.PlayerEventHandler;
 import net.fuchsiamc.circaea.managers.GroupManager;
 import net.fuchsiamc.circaea.managers.PlayerManager;
@@ -23,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-// todo: might want to write manager interfaces or something
+// todo: might want to write manager interfaces or something (could chuck that in guara)
 public final class Circaea extends FuchsiaPlugin {
     /**
      * The mongo database for circaea.
@@ -57,8 +56,8 @@ public final class Circaea extends FuchsiaPlugin {
         super.onEnable();
 
         playerManager = new PlayerManager(this);
-        rankManager = new RankManager();
-        groupManager = new GroupManager();
+        rankManager = new RankManager(this);
+        groupManager = new GroupManager(this);
 
         // Ensure config exists.
         saveDefaultConfig();
@@ -112,7 +111,6 @@ public final class Circaea extends FuchsiaPlugin {
     public List<IFuchsiaCommand> getCommands() {
         List<IFuchsiaCommand> list = new ArrayList<>();
 
-        list.add(new PlayerNameTestCommand());
         list.add(new CircaeaCommand(this));
 
         return list;
