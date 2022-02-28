@@ -7,6 +7,7 @@ import net.fuchsiamc.circaea.Circaea;
 import net.fuchsiamc.circaea.permissions.PermissionGroup;
 import net.fuchsiamc.circaea.permissions.PermittedPlayer;
 import net.fuchsiamc.circaea.util.Response;
+import org.bson.Document;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.PermissionAttachment;
 
@@ -33,11 +34,9 @@ public class PlayerManager {
         playersCollection = db.getCollection("players", PermittedPlayer.class);
     }
 
-
     public PermittedPlayer registerPlayer(PermittedPlayer player) {
         // check if a player with the same uuid already exists because we don't want duplicates
-        PermittedPlayer existingPlayer = playersCollection.find(Filters.eq("uuid", player.getPlayerUuid()))
-                .first();
+        PermittedPlayer existingPlayer = getPlayer(player.getPlayerUuid());
 
         if (existingPlayer != null) {
             return existingPlayer;
@@ -50,7 +49,7 @@ public class PlayerManager {
 
     public Response updatePlayer(PermittedPlayer player) {
         // replace the player in the database
-        if (playersCollection.find(Filters.eq("uuid", player.getPlayerUuid())).first() == null) {
+        if (playersCollection.findOneAndReplace(new Document("uuid", player.getPlayerUuid()), player) == null) {
             return new Response(false, "This permitted player does not exist!");
         }
 

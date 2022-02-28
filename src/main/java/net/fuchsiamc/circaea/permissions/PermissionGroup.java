@@ -28,13 +28,6 @@ public final class PermissionGroup {
     @Setter
     private List<String> removedPermissions;
 
-    public PermissionGroup(String name, List<String> addedPermissions,
-                           List<String> removedPermissions) {
-        this.addedPermissions = addedPermissions;
-        this.removedPermissions = removedPermissions;
-        this.name = name;
-    }
-
     public PermissionGroup(String name) {
         this.name = name;
         this.addedPermissions = new ArrayList<>();
