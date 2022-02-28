@@ -1,2 +1,2 @@
 # circaea
-Powerful in-house permissions plugin for Paper.
+Powerful in-house permission plugin for Paper.
