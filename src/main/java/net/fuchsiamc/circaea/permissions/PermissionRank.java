@@ -6,6 +6,7 @@ import org.bson.codecs.pojo.annotations.BsonProperty;
 import org.bson.types.ObjectId;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 public class PermissionRank {
@@ -32,11 +33,10 @@ public class PermissionRank {
     @Setter
     private String childRank;
 
-    public PermissionRank(List<String> permissionGroups,
-                          String name,
+    public PermissionRank(String name,
                           int priority,
                           @Nullable String childRankName) {
-        this.permissionGroups = permissionGroups;
+        this.permissionGroups = new ArrayList<>();
         this.name = name;
         this.priority = priority;
         this.childRank = childRankName;

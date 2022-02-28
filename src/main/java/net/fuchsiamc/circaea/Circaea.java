@@ -64,13 +64,16 @@ public final class Circaea extends FuchsiaPlugin {
     @Getter
     private BukkitRunnable clientRunnable;
 
+    @Getter
+    private MongoClient mongoClient;
+
     @Override
     public void onEnable() {
         super.onEnable();
 
         playerManager = new PlayerManager(this);
-        rankManager = new RankManager(this);
-        groupManager = new GroupManager(this);
+        rankManager = new RankManager();
+        groupManager = new GroupManager();
 
         // Ensure config exists.
         saveDefaultConfig();
@@ -80,22 +83,16 @@ public final class Circaea extends FuchsiaPlugin {
         if (setupMongoDB())
             return;
 
-        /*
-        clientRunnable = new BukkitRunnable() {
-            @Override
-            public void run() {
-                socketClient.connect();
-            }
-        };
-
-        if (setupSocket())
-            return;*/
-
         rankManager.initialize(database);
         groupManager.initialize(database);
         playerManager.initialize(database);
 
         getServer().getPluginManager().registerEvents(new PlayerEventHandler(this), this);
+    }
+
+    @Override
+    public void onDisable() {
+        mongoClient.close();
     }
 
     private boolean setupMongoDB() {
@@ -121,7 +118,7 @@ public final class Circaea extends FuchsiaPlugin {
                 .codecRegistry(pojoCodecRegistry)
                 .build();
 
-        MongoClient mongoClient = MongoClients.create(settings);
+        mongoClient = MongoClients.create(settings);
         database = mongoClient.getDatabase("circaea");
         return false;
     }

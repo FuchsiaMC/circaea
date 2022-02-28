@@ -14,8 +14,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-
 // todo: completely rewrite with own command api in gaura
 // super low effort, just need it to function
 public class CircaeaCommand implements IFuchsiaCommand {
@@ -60,7 +58,7 @@ public class CircaeaCommand implements IFuchsiaCommand {
     private boolean groupCommand(CommandSender sender, String[] args) {
         // /circaea group
         if (args.length < 2) {
-            sender.sendMessage("valid subcommands are: register, <group name>");
+            sender.sendMessage("valid subcommands are: register, <group name>, list");
             return true;
         }
 
@@ -81,11 +79,10 @@ public class CircaeaCommand implements IFuchsiaCommand {
                 return true;
             }
 
-            manager.registerGroup(new PermissionGroup(groupName, new ArrayList<>(), new ArrayList<>()));
-            sender.sendMessage("registered a group with the name of: " + groupName);
-            return true;
+            return manager.registerGroup(new PermissionGroup(groupName))
+                    .executeAsCommand(sender);
         } else if (groupCommand.equals("list")) {
-            // list all ranks
+            // list all groups
             sender.sendMessage(manager.getGroups().toString());
             return true;
         }
@@ -165,9 +162,8 @@ public class CircaeaCommand implements IFuchsiaCommand {
                         return true;
                     }
 
-                    manager.registerGroup(foundGroup);
-                    sender.sendMessage("updated the group");
-                    return true;
+                    return manager.updateGroup(foundGroup)
+                            .executeAsCommand(sender);
                 }
                 case "remove" -> {
                     if (args.length < 5) {
@@ -179,9 +175,9 @@ public class CircaeaCommand implements IFuchsiaCommand {
 
                     foundGroup.getRemovedPermissions().remove(permission);
                     foundGroup.getAddedPermissions().remove(permission);
-                    manager.registerGroup(foundGroup);
-                    sender.sendMessage("removed permission from this group");
-                    return true;
+
+                    return manager.updateGroup(foundGroup)
+                            .executeAsCommand(sender);
                 }
                 case "clear" -> {
                     for (String permission : foundGroup.getAddedPermissions()) {
@@ -190,9 +186,9 @@ public class CircaeaCommand implements IFuchsiaCommand {
                     for (String permission : foundGroup.getRemovedPermissions()) {
                         foundGroup.getRemovedPermissions().remove(permission);
                     }
-                    manager.registerGroup(foundGroup);
-                    sender.sendMessage("removed all permissions from this group");
-                    return true;
+
+                    return manager.updateGroup(foundGroup)
+                            .executeAsCommand(sender);
                 }
                 case "list" -> sender.sendMessage("added permissions:\n" + foundGroup.getAddedPermissions().toString() + "\nremoved permissions:\n" + foundGroup.getRemovedPermissions().toString());
                 default -> {
@@ -211,7 +207,7 @@ public class CircaeaCommand implements IFuchsiaCommand {
     private boolean rankCommand(CommandSender sender, String[] args) {
         // /circaea rank
         if (args.length < 2) {
-            sender.sendMessage("valid subcommands are: register, <rank-name>");
+            sender.sendMessage("valid subcommands are: register, <rank-name>, list");
             return true;
         }
 
@@ -246,9 +242,8 @@ public class CircaeaCommand implements IFuchsiaCommand {
                 return true;
             }
 
-            manager.registerRank(new PermissionRank(new ArrayList<>(), rankName, priority, null));
-            sender.sendMessage("registered a rank with the name of: " + rankName);
-            return true;
+            return manager.registerRank(new PermissionRank(rankName, priority, null))
+                    .executeAsCommand(sender);
         } else if (rankCommand.equals("list")) {
             // list all ranks
             sender.sendMessage(manager.getRanks().toString());
@@ -300,9 +295,9 @@ public class CircaeaCommand implements IFuchsiaCommand {
                         }
 
                         foundRank.getPermissionGroups().add(group);
-                        manager.registerRank(foundRank);
-                        sender.sendMessage("updated the rank");
-                        return true;
+
+                        return manager.updateRank(foundRank)
+                                .executeAsCommand(sender);
                     }
                     case "remove" -> {
                         if (args.length < 5) {
@@ -313,17 +308,17 @@ public class CircaeaCommand implements IFuchsiaCommand {
                         String group = args[4].toLowerCase();
 
                         foundRank.getPermissionGroups().remove(group);
-                        manager.registerRank(foundRank);
-                        sender.sendMessage("removed group from this rank");
-                        return true;
+
+                        return manager.updateRank(foundRank)
+                                .executeAsCommand(sender);
                     }
                     case "clear" -> {
                         for (String group : foundRank.getPermissionGroups()) {
                             foundRank.getPermissionGroups().remove(group);
                         }
-                        manager.registerRank(foundRank);
-                        sender.sendMessage("removed all groups from this rank");
-                        return true;
+
+                        return manager.updateRank(foundRank)
+                                .executeAsCommand(sender);
                     }
                     case "list" -> sender.sendMessage("groups:\n" + foundRank.getPermissionGroups().toString());
                     default -> {
@@ -337,10 +332,12 @@ public class CircaeaCommand implements IFuchsiaCommand {
                     sender.sendMessage("please provide a child subcommand");
                     return true;
                 }
+
                 String childSubcommand = args[3].toLowerCase();
+
                 if (childSubcommand.equals("set")) {
                     if (args.length < 5) {
-                        sender.sendMessage("please a child rank to add");
+                        sender.sendMessage("please provide a child rank to add");
                         return true;
                     }
 
@@ -356,9 +353,9 @@ public class CircaeaCommand implements IFuchsiaCommand {
                     sender.sendMessage("please provide a valid child subcommand: add, remove");
                     return true;
                 }
-                manager.registerRank(foundRank);
-                sender.sendMessage("updated the child of this rank");
-                return true;
+
+                return manager.updateRank(foundRank)
+                        .executeAsCommand(sender);
             }
             default -> {
                 sender.sendMessage("please enter a valid subcommand: info, group, child");
@@ -385,7 +382,7 @@ public class CircaeaCommand implements IFuchsiaCommand {
             return true;
         }
 
-        PermittedPlayer foundPlayer = manager.getPermittedPlayer(onlinePlayer.getUniqueId());
+        PermittedPlayer foundPlayer = manager.getPlayer(onlinePlayer.getUniqueId());
 
         if (foundPlayer == null) {
             sender.sendMessage("somehow the player you provided is not in the database :/");
@@ -399,100 +396,104 @@ public class CircaeaCommand implements IFuchsiaCommand {
 
         String playerSubCommand = args[2].toLowerCase();
 
-        if (playerSubCommand.equals("info")) {
-            sender.sendMessage(foundPlayer.toString());
-            return true;
-        } else if (playerSubCommand.equals("rank")) {
-            if (args.length < 4) {
-                sender.sendMessage("valid subcommands are: set, clear");
+        switch (playerSubCommand) {
+            case "info" -> {
+                sender.sendMessage(foundPlayer.toString());
                 return true;
             }
-
-            String rankCommand = args[3].toLowerCase();
-            RankManager rankManager = circaea.getRankManager();
-
-            if (rankCommand.equals("set")) {
-                if (args.length < 5) {
-                    sender.sendMessage("valid subcommands are: <rank name>");
+            case "rank" -> {
+                if (args.length < 4) {
+                    sender.sendMessage("valid subcommands are: set, clear");
                     return true;
                 }
-
-                String rankName = args[4].toLowerCase();
-
-                PermissionRank foundRank = rankManager.getRank(rankName);
-
-                if (foundRank == null) {
-                    sender.sendMessage("this rank does not exist!");
-                    return true;
-                }
-
-                foundPlayer.setRank(foundRank);
-                manager.updatePlayer(foundPlayer);
-            } else if (rankCommand.equals("clear")) {
-                foundPlayer.setRank(rankManager.getDefaultRank());
-                manager.updatePlayer(foundPlayer);
-            } else {
-                sender.sendMessage("valid subcommands are: set, clear");
-                return true;
-            }
-        } else if (playerSubCommand.equals("group")) {
-            if (args.length < 4) {
-                sender.sendMessage("please provide a group subcommand");
-                return true;
-            }
-
-            // add, remove, clear, list
-            String groupCommand = args[3].toLowerCase();
-            switch (groupCommand) {
-                case "add" -> {
+                String rankCommand = args[3].toLowerCase();
+                RankManager rankManager = circaea.getRankManager();
+                if (rankCommand.equals("set")) {
                     if (args.length < 5) {
-                        sender.sendMessage("please provide a group to add");
+                        sender.sendMessage("valid subcommands are: <rank name>");
                         return true;
                     }
 
-                    String group = args[4].toLowerCase();
+                    String rankName = args[4].toLowerCase();
+                    PermissionRank foundRank = rankManager.getRank(rankName);
 
-                    if (foundPlayer.getPermissionGroups().contains(group)) {
-                        sender.sendMessage("this player already contains this group");
+                    if (foundRank == null) {
+                        sender.sendMessage("this rank does not exist!");
                         return true;
                     }
 
-                    foundPlayer.getPermissionGroups().add(group);
-                    manager.updatePlayer(foundPlayer);
-                    sender.sendMessage("updated the player");
+                    foundPlayer.setRank(foundRank);
+
+                    return manager.updatePlayer(foundPlayer)
+                            .executeAsCommand(sender);
+                } else if (rankCommand.equals("clear")) {
+                    foundPlayer.setRank(rankManager.getDefaultRank());
+
+                    return manager.updatePlayer(foundPlayer)
+                            .executeAsCommand(sender);
+                } else {
+                    sender.sendMessage("valid subcommands are: set, clear");
                     return true;
                 }
-                case "remove" -> {
-                    if (args.length < 5) {
-                        sender.sendMessage("please provide a group to remove");
-                        return true;
-                    }
-
-                    String group = args[4].toLowerCase();
-
-                    foundPlayer.getPermissionGroups().remove(group);
-                    manager.updatePlayer(foundPlayer);
-                    sender.sendMessage("removed group from this player");
+            }
+            case "group" -> {
+                if (args.length < 4) {
+                    sender.sendMessage("please provide a group subcommand");
                     return true;
                 }
-                case "clear" -> {
-                    for (String group : foundPlayer.getPermissionGroups()) {
+
+                // add, remove, clear, list
+                String groupCommand = args[3].toLowerCase();
+                switch (groupCommand) {
+                    case "add" -> {
+                        if (args.length < 5) {
+                            sender.sendMessage("please provide a group to add");
+                            return true;
+                        }
+
+                        String group = args[4].toLowerCase();
+
+                        if (foundPlayer.getPermissionGroups().contains(group)) {
+                            sender.sendMessage("this player already contains this group");
+                            return true;
+                        }
+
+                        foundPlayer.getPermissionGroups().add(group);
+
+                        return manager.updatePlayer(foundPlayer)
+                                .executeAsCommand(sender);
+                    }
+                    case "remove" -> {
+                        if (args.length < 5) {
+                            sender.sendMessage("please provide a group to remove");
+                            return true;
+                        }
+
+                        String group = args[4].toLowerCase();
                         foundPlayer.getPermissionGroups().remove(group);
-                    }
 
-                    manager.updatePlayer(foundPlayer);
-                    sender.sendMessage("removed all groups from this player");
-                    return true;
-                }
-                case "list" -> sender.sendMessage("groups:\n" + foundPlayer.getPermissionGroups().toString());
-                default -> {
-                    sender.sendMessage("please provide a valid group subcommand; add, remove, clear, list");
-                    return true;
+                        return manager.updatePlayer(foundPlayer)
+                                .executeAsCommand(sender);
+                    }
+                    case "clear" -> {
+                        for (String group : foundPlayer.getPermissionGroups()) {
+                            foundPlayer.getPermissionGroups().remove(group);
+                        }
+
+                        return manager.updatePlayer(foundPlayer)
+                                .executeAsCommand(sender);
+                    }
+                    case "list" -> sender.sendMessage("groups:\n" + foundPlayer.getPermissionGroups().toString());
+                    default -> {
+                        sender.sendMessage("please provide a valid group subcommand; add, remove, clear, list");
+                        return true;
+                    }
                 }
             }
-        } else {
-            sender.sendMessage("valid subcommands are: rank, group, info");
-            return true;
+            default -> {
+                sender.sendMessage("valid subcommands are: rank, group, info");
+                return true;
+            }
         }
 
         return false;

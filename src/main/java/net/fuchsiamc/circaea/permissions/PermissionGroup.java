@@ -5,6 +5,7 @@ import lombok.Setter;
 import org.bson.codecs.pojo.annotations.BsonProperty;
 import org.bson.types.ObjectId;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class PermissionGroup {
@@ -32,6 +33,12 @@ public final class PermissionGroup {
         this.addedPermissions = addedPermissions;
         this.removedPermissions = removedPermissions;
         this.name = name;
+    }
+
+    public PermissionGroup(String name) {
+        this.name = name;
+        this.addedPermissions = new ArrayList<>();
+        this.removedPermissions = new ArrayList<>();
     }
 
     /**

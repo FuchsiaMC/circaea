@@ -2,182 +2,89 @@ package net.fuchsiamc.circaea.managers;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import lombok.Getter;
+import com.mongodb.client.model.Filters;
 import net.fuchsiamc.circaea.Circaea;
 import net.fuchsiamc.circaea.permissions.PermissionGroup;
 import net.fuchsiamc.circaea.permissions.PermittedPlayer;
-import net.fuchsiamc.circaea.util.CommandResponse;
-import org.bson.Document;
+import net.fuchsiamc.circaea.util.Response;
 import org.bukkit.entity.Player;
+import org.bukkit.permissions.PermissionAttachment;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class PlayerManager {
     private final Circaea circaea;
 
     /**
-     * A list containing the player data of every player that has ever joined the server.
-     */
-    @Getter
-    private final List<PermittedPlayer> players = new ArrayList<>();
-
-    /**
      * The mongo database collection for players.
      */
     private MongoCollection<PermittedPlayer> playersCollection;
+
+    private final Map<UUID, PermissionAttachment> attachedPlayers = new HashMap<>();
 
     public PlayerManager(Circaea circaea) {
         this.circaea = circaea;
     }
 
-    /**
-     * Intialize the player database collection and add all players to this local Circaea instance.
-     *
-     * @param db The MongoDatabase that the players collection can be found in.
-     */
     public void initialize(MongoDatabase db) {
         // initialize the collection
         playersCollection = db.getCollection("players", PermittedPlayer.class);
+    }
 
-        // add all the players from the database to our list
-        for (PermittedPlayer player : playersCollection.find()) {
-            players.add(player);
+
+    public PermittedPlayer registerPlayer(PermittedPlayer player) {
+        // check if a player with the same uuid already exists because we don't want duplicates
+        PermittedPlayer existingPlayer = playersCollection.find(Filters.eq("uuid", player.getPlayerUuid()))
+                .first();
+
+        if (existingPlayer != null) {
+            return existingPlayer;
         }
-    }
 
-    /**
-     * Sync the players of this Circaea instance with the players present in the database.
-     */
-    public void syncPlayers() {
-        players.clear();
-
-        for (PermittedPlayer player : playersCollection.find()) {
-            players.add(player);
-        }
-    }
-
-    public boolean playerExists(Player player) {
-        // look for any players with the same uuid in the players list
-        return players.stream().anyMatch(permittedPlayer -> permittedPlayer.getPlayerUuid().equals(player.getUniqueId()));
-    }
-
-    /**
-     * Gets the permitted player from the local players collection.
-     *
-     * @param player The player you wish to get a permitted player object from.
-     * @return Returns the permitted player object if successful, returns null otherwise.
-     */
-    public PermittedPlayer getPermittedPlayer(Player player) {
-        return players.stream().filter(permittedPlayer ->
-                permittedPlayer.getPlayerUuid().equals(player.getUniqueId())).findFirst().orElse(null);
-    }
-
-    public PermittedPlayer getPermittedPlayer(UUID uuid) {
-        return players.stream().filter(permittedPlayer ->
-                permittedPlayer.getPlayerUuid().equals(uuid)).findFirst().orElse(null);
-    }
-
-    /**
-     * Register a player to the players collection.
-     *
-     * @param player The player to register.
-     * @return Returns the permitted player object associated with the provided player.
-     */
-    public PermittedPlayer registerPlayer(Player player) {
-        // create the player data object
-        PermittedPlayer permittedPlayer =
-                new PermittedPlayer(player.getUniqueId(), circaea.getRankManager().getDefaultRank(), new ArrayList<>());
-
-        // add it to the players collection
-        players.add(permittedPlayer);
         // add it to the database
-        playersCollection.insertOne(permittedPlayer);
-        // sync the player change with the other connected clients
-        //circaea.getSocketClient().messageServer(SocketData.SyncPlayers.getData());
-        // return the permitted player
-        return permittedPlayer;
+        playersCollection.insertOne(player);
+        return player;
     }
 
-    public CommandResponse updatePlayer(PermittedPlayer player) {
-        if (players.stream().anyMatch(permittedPlayer -> permittedPlayer.getPlayerUuid() != player.getPlayerUuid())) {
-            return new CommandResponse(false, "Did not find a player with the same UUID in the player collection!");
+    public Response updatePlayer(PermittedPlayer player) {
+        // replace the player in the database
+        if (playersCollection.find(Filters.eq("uuid", player.getPlayerUuid())).first() == null) {
+            return new Response(false, "This permitted player does not exist!");
         }
 
-        // replace the existing player
-        players.replaceAll(rPlayer -> {
-            // find the existing group and replace it
-            if (rPlayer.getPlayerUuid().equals(player.getPlayerUuid())) {
-                return player;
-            }
-            // if it's not the group we're looking for then don't change it
-            return rPlayer;
-        });
-
-        // replace the group in the database
-        playersCollection.findOneAndReplace(new Document("uuid", player.getPlayerUuid()), player);
-
-        // sync the group change with the other connected clients
-        //circaea.getSocketClient().messageServer(SocketData.SyncPlayers.getData());
-        // return the successful response
-        return new CommandResponse(true, "Successfully replaced old group of the same name!");
+        return new Response(true, "Successfully updated permitted player!");
     }
 
-    /**
-     * Set a PermissionAttachment to the provided player.
-     *
-     * @param player The player you wish to attach a PermissionAttachment to.
-     */
+    public PermittedPlayer getPlayer(UUID playerUuid) {
+        return playersCollection.find(Filters.eq("uuid", playerUuid)).first();
+    }
+
+    public boolean playerExists(UUID playerUuid) {
+        return getPlayer(playerUuid) != null;
+    }
+
     public void setupAttachment(Player player) {
-        players.replaceAll(permittedPlayer -> {
-            // only replace the player we're looking for
-            if (permittedPlayer.getPlayerUuid().equals(player.getUniqueId())) {
-                // add the attachment
-                permittedPlayer.setAttachment(player.addAttachment(circaea));
-                // return our new permitted player
-                return permittedPlayer;
-            }
-
-            // if this isn't the player we're looking for, don't change it
-            return permittedPlayer;
-        });
+        attachedPlayers.put(player.getUniqueId(), player.addAttachment(circaea));
     }
 
-    // bad
-
-    /**
-     * Remove a PermissionAttachment from the provided player.
-     *
-     * @param player The player you wish to remove a PermissionAttachment from.
-     */
     public void removeAttachment(Player player) {
-        players.replaceAll(permittedPlayer -> {
-            // only replace the player we're looking for
-            if (permittedPlayer.getPlayerUuid().equals(player.getUniqueId())) {
-                // remove the attachment
-                player.removeAttachment(permittedPlayer.getAttachment());
-                // remove the attachment from the stored object
-                permittedPlayer.setAttachment(null);
-                // return our new permitted player
-                return permittedPlayer;
-            }
-
-            // if this isn't the player we're looking for, don't change it
-            return permittedPlayer;
-        });
+        attachedPlayers.remove(player.getUniqueId());
     }
 
-    public void setPerms(PermittedPlayer player, GroupManager manager) {
+    public void setupPermissions(PermittedPlayer player, GroupManager manager) {
+        PermissionAttachment attachment = attachedPlayers.get(player.getPlayerUuid());
+
         for (String groupName : player.getRank().getPermissionGroups()) {
             PermissionGroup group = manager.getGroup(groupName);
 
             for (String perm : group.getAddedPermissions()) {
-                player.getAttachment().setPermission(perm, true);
+                attachment.setPermission(perm, true);
             }
 
             for (String perm : group.getRemovedPermissions()) {
-                player.getAttachment().setPermission(perm, false);
+                attachment.setPermission(perm, false);
             }
         }
 
@@ -185,21 +92,23 @@ public class PlayerManager {
             PermissionGroup group = manager.getGroup(groupName);
 
             for (String perm : group.getAddedPermissions()) {
-                player.getAttachment().setPermission(perm, true);
+                attachment.setPermission(perm, true);
             }
 
             for (String perm : group.getRemovedPermissions()) {
-                player.getAttachment().setPermission(perm, false);
+                attachment.setPermission(perm, false);
             }
         }
     }
 
-    public void removePerms(PermittedPlayer player, GroupManager manager) {
+    public void removePermissions(PermittedPlayer player, GroupManager manager) {
+        PermissionAttachment attachment = attachedPlayers.get(player.getPlayerUuid());
+
         for (String groupName : player.getRank().getPermissionGroups()) {
             PermissionGroup group = manager.getGroup(groupName);
 
             for (String perm : group.getAddedPermissions()) {
-                player.getAttachment().setPermission(perm, false);
+                attachment.setPermission(perm, false);
             }
         }
 
@@ -207,7 +116,7 @@ public class PlayerManager {
             PermissionGroup group = manager.getGroup(groupName);
 
             for (String perm : group.getAddedPermissions()) {
-                player.getAttachment().setPermission(perm, false);
+                attachment.setPermission(perm, false);
             }
         }
     }
